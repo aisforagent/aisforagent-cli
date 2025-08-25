@@ -48,6 +48,7 @@ export enum AuthType {
   USE_GEMINI = 'gemini-api-key',
   USE_VERTEX_AI = 'vertex-ai',
   CLOUD_SHELL = 'cloud-shell',
+  USE_OPENAI_COMPATIBLE = 'openai-compatible',
 }
 
 export type ContentGeneratorConfig = {
@@ -98,6 +99,21 @@ export function createContentGeneratorConfig(
   ) {
     contentGeneratorConfig.apiKey = googleApiKey;
     contentGeneratorConfig.vertexai = true;
+
+    return contentGeneratorConfig;
+  }
+
+  if (authType === AuthType.USE_OPENAI_COMPATIBLE) {
+    const openaiCompatibleBaseUrl = process.env['OPENAI_COMPATIBLE_BASE_URL'];
+    const openaiCompatibleApiKey = process.env['OPENAI_COMPATIBLE_API_KEY'];
+    
+    if (openaiCompatibleBaseUrl) {
+      // Store provider info in the config for use by our new LLM provider system
+      contentGeneratorConfig.apiKey = openaiCompatibleApiKey || 'dummy-key';
+      // Add a custom field to identify this as an OpenAI-compatible provider
+      (contentGeneratorConfig as any).baseUrl = openaiCompatibleBaseUrl;
+      (contentGeneratorConfig as any).providerType = 'openai-compatible';
+    }
 
     return contentGeneratorConfig;
   }

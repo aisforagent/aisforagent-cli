@@ -9,6 +9,16 @@ import { loadEnvironment } from './settings.js';
 
 export const validateAuthMethod = (authMethod: string): string | null => {
   loadEnvironment();
+  
+  // Support for AIFA local providers
+  if (authMethod === AuthType.USE_OPENAI_COMPATIBLE) {
+    if (!process.env['OPENAI_COMPATIBLE_BASE_URL']) {
+      return 'OPENAI_COMPATIBLE_BASE_URL environment variable not found. Set it to your LM Studio server URL (e.g., http://127.0.0.1:1234) and try again!';
+    }
+    return null;
+  }
+
+  // Legacy Google auth methods (maintained for backward compatibility)
   if (
     authMethod === AuthType.LOGIN_WITH_GOOGLE ||
     authMethod === AuthType.CLOUD_SHELL

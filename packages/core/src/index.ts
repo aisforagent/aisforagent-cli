@@ -20,6 +20,12 @@ export * from './core/geminiRequest.js';
 export * from './core/coreToolScheduler.js';
 export * from './core/nonInteractiveToolExecutor.js';
 
+// Export LLM providers
+export * from './llm/LlmProvider.js';
+export * from './llm/GoogleGeminiProvider.js';
+export * from './llm/OpenAICompatibleProvider.js';
+export * from './llm/providerFactory.js';
+
 export * from './code_assist/codeAssist.js';
 export * from './code_assist/oauth2.js';
 export * from './code_assist/server.js';

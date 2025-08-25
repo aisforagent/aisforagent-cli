@@ -10,6 +10,7 @@ import { ToolCallRequestInfo } from './turn.js';
 import { executeToolCall } from './nonInteractiveToolExecutor.js';
 import { createContentGenerator } from './contentGenerator.js';
 import { getEnvironmentContext } from '../utils/environmentContext.js';
+import { truncateToolResult } from '../llm/errorHandling.js';
 import {
   Content,
   Part,
@@ -521,7 +522,13 @@ export class SubAgentScope {
       }
 
       if (toolResponse.responseParts) {
-        toolResponseParts.push(...toolResponse.responseParts);
+        const truncatedParts = toolResponse.responseParts.map((part) => {
+          if (part.text) {
+            return { ...part, text: truncateToolResult(part.text) };
+          }
+          return part;
+        });
+        toolResponseParts.push(...truncatedParts);
       }
     }
     // If all tool calls failed, inform the model so it can re-evaluate.

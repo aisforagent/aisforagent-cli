@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test)",
+      "Bash(npm install)",
+      "Bash(npm run build:packages:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run build:*)",
+      "Bash(OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234 node test-aifa.js)",
+      "Bash(OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234 node test-multimodal.js)",
+      "Bash(OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234 npm test -- e2e.test.ts --reporter=verbose)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
