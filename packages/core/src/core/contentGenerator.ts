@@ -126,6 +126,11 @@ export async function createContentGenerator(
   gcConfig: Config,
   sessionId?: string,
 ): Promise<ContentGenerator> {
+  console.log('🎯🎯🎯 createContentGenerator called! 🎯🎯🎯');
+  console.log('Content generator config auth type:', config.authType);
+  console.log('Expected OpenAI auth type:', AuthType.USE_OPENAI_COMPATIBLE);
+  console.log('Auth type match:', config.authType === AuthType.USE_OPENAI_COMPATIBLE);
+  
   const version = process.env['CLI_VERSION'] || process.version;
   const userAgent = `GeminiCLI/${version} (${process.platform}; ${process.arch})`;
   const baseHeaders: Record<string, string> = {
@@ -171,6 +176,20 @@ export async function createContentGenerator(
     });
     return new LoggingContentGenerator(googleGenAI.models, gcConfig);
   }
+
+  if (config.authType === AuthType.USE_OPENAI_COMPATIBLE) {
+    // Use our new LLM provider system for OpenAI-compatible providers
+    const { createLlmProvider } = await import('../llm/providerFactory.js');
+    const llmProvider = await createLlmProvider();
+    
+    // Create a wrapper that implements ContentGenerator interface
+    const { LlmProviderContentGeneratorAdapter } = await import('./llmProviderAdapter.js');
+    return new LoggingContentGenerator(
+      new LlmProviderContentGeneratorAdapter(llmProvider, gcConfig),
+      gcConfig
+    );
+  }
+  
   throw new Error(
     `Error creating contentGenerator: Unsupported authType: ${config.authType}`,
   );

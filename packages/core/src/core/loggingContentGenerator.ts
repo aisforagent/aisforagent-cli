@@ -58,16 +58,25 @@ export class LoggingContentGenerator implements ContentGenerator {
     );
   }
 
-  private _logApiResponse(
+  private async _logApiResponse(
     durationMs: number,
     prompt_id: string,
     usageMetadata?: GenerateContentResponseUsageMetadata,
     responseText?: string,
-  ): void {
+  ): Promise<void> {
+    // Use display model name for telemetry to show correct model in stats
+    let modelName: string;
+    try {
+      modelName = await this.config.getDisplayModelName();
+    } catch (error) {
+      // Fallback to regular model name if display name fails
+      modelName = this.config.getModel();
+    }
+    
     logApiResponse(
       this.config,
       new ApiResponseEvent(
-        this.config.getModel(),
+        modelName,
         durationMs,
         prompt_id,
         this.config.getContentGeneratorConfig()?.authType,
@@ -77,18 +86,27 @@ export class LoggingContentGenerator implements ContentGenerator {
     );
   }
 
-  private _logApiError(
+  private async _logApiError(
     durationMs: number,
     error: unknown,
     prompt_id: string,
-  ): void {
+  ): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorType = error instanceof Error ? error.name : 'unknown';
+
+    // Use display model name for telemetry to show correct model in stats
+    let modelName: string;
+    try {
+      modelName = await this.config.getDisplayModelName();
+    } catch (displayError) {
+      // Fallback to regular model name if display name fails
+      modelName = this.config.getModel();
+    }
 
     logApiError(
       this.config,
       new ApiErrorEvent(
-        this.config.getModel(),
+        modelName,
         errorMessage,
         durationMs,
         prompt_id,
@@ -110,7 +128,7 @@ export class LoggingContentGenerator implements ContentGenerator {
     try {
       const response = await this.wrapped.generateContent(req, userPromptId);
       const durationMs = Date.now() - startTime;
-      this._logApiResponse(
+      await this._logApiResponse(
         durationMs,
         userPromptId,
         response.usageMetadata,
@@ -119,7 +137,7 @@ export class LoggingContentGenerator implements ContentGenerator {
       return response;
     } catch (error) {
       const durationMs = Date.now() - startTime;
-      this._logApiError(durationMs, error, userPromptId);
+      await this._logApiError(durationMs, error, userPromptId);
       throw error;
     }
   }
@@ -136,7 +154,7 @@ export class LoggingContentGenerator implements ContentGenerator {
       stream = await this.wrapped.generateContentStream(req, userPromptId);
     } catch (error) {
       const durationMs = Date.now() - startTime;
-      this._logApiError(durationMs, error, userPromptId);
+      await this._logApiError(durationMs, error, userPromptId);
       throw error;
     }
 
@@ -163,12 +181,12 @@ export class LoggingContentGenerator implements ContentGenerator {
       }
     } catch (error) {
       const durationMs = Date.now() - startTime;
-      this._logApiError(durationMs, error, userPromptId);
+      await this._logApiError(durationMs, error, userPromptId);
       throw error;
     }
     const durationMs = Date.now() - startTime;
     if (lastResponse) {
-      this._logApiResponse(
+      await this._logApiResponse(
         durationMs,
         userPromptId,
         lastUsageMetadata,

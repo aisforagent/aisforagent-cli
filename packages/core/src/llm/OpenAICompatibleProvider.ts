@@ -169,6 +169,7 @@ export class OpenAICompatibleProvider extends LlmProvider {
 
   constructor(config: OpenAICompatibleConfig) {
     super();
+    console.log('🚀🚀🚀 OpenAICompatibleProvider constructor called! 🚀🚀🚀');
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl || 'http://localhost:1234/v1';
     this.model = config.model;
@@ -185,6 +186,11 @@ export class OpenAICompatibleProvider extends LlmProvider {
   }
 
   async chat(request: ChatRequest, handlers?: StreamingHandlers): Promise<LlmResponse> {
+    console.log('[OpenAI Debug] chat() called with tools:', request.tools?.length || 0);
+    console.log('[OpenAI Debug] systemInstruction provided:', !!request.systemInstruction);
+    if (request.tools && request.tools.length > 0) {
+      console.log('[OpenAI Debug] Tool names:', request.tools.map(t => t.functionDeclarations?.[0]?.name || 'unknown'));
+    }
     try {
       const openaiRequest = this.convertToOpenAIRequest(request);
 
@@ -246,23 +252,33 @@ export class OpenAICompatibleProvider extends LlmProvider {
 
     const textBuf: string[] = [];
     const toolCallAccumulators = new Map<number, ToolCallAccumulator>();
+    let streamFinished = false;
+    let finishReason: string | undefined;
 
     try {
       const stream = await this.sendStreamingRequest(request);
 
       for await (const chunk of stream) {
-        if (!chunk.choices?.[0]?.delta) continue;
+        if (!chunk.choices?.[0]) continue;
 
-        const delta = chunk.choices[0].delta;
+        const choice = chunk.choices[0];
+        const delta = choice.delta;
+
+        // Check for stream completion
+        if (choice.finish_reason) {
+          finishReason = choice.finish_reason;
+          streamFinished = true;
+          // Continue processing this chunk but mark stream as finished
+        }
 
         // Handle text content
-        if (delta.content) {
+        if (delta?.content) {
           textBuf.push(delta.content);
           handlers.onDelta?.({ text: delta.content });
         }
 
         // Handle tool calls
-        if (delta.tool_calls) {
+        if (delta?.tool_calls) {
           for (const toolCallDelta of delta.tool_calls) {
             const index = toolCallDelta.index;
             if (!toolCallAccumulators.has(index)) {
@@ -281,6 +297,11 @@ export class OpenAICompatibleProvider extends LlmProvider {
               accumulator.argsSrc += toolCallDelta.function.arguments;
             }
           }
+        }
+
+        // Break if stream is finished and this chunk is processed
+        if (streamFinished) {
+          break;
         }
       }
 
@@ -306,17 +327,37 @@ export class OpenAICompatibleProvider extends LlmProvider {
               parsedArgs = {}; // Fallback to empty args
             }
 
-            return {
+            const toolCall = {
               id: accumulator.id || `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               name: accumulator.name || 'unknown',
               arguments: parsedArgs,
             };
+            
+            console.log('[OpenAI Debug] Streaming tool call result:', JSON.stringify({
+              accumulator: accumulator,
+              finalToolCall: toolCall
+            }, null, 2));
+            
+            return toolCall;
           });
+      }
+
+      // Log completion status for debugging
+      if (process.env['AIFA_DEBUG_STREAMING'] === 'true') {
+        console.debug('[OpenAI-Compatible Provider] Stream completed:', {
+          streamFinished,
+          finishReason,
+          textLength: textBuf.length,
+          toolCallCount: toolCallAccumulators.size,
+        });
       }
 
       handlers.onDone?.(finalResponse);
       return finalResponse;
     } catch (error) {
+      if (process.env['AIFA_DEBUG_STREAMING'] === 'true') {
+        console.debug('[OpenAI-Compatible Provider] Stream error:', error);
+      }
       handlers.onError?.(error as Error);
       throw error;
     }
@@ -379,16 +420,69 @@ export class OpenAICompatibleProvider extends LlmProvider {
           if (line.trim() === '' || !line.startsWith('data: ')) continue;
           
           const data = line.slice(6).trim();
-          if (data === '[DONE]') return;
+          if (data === '[DONE]') {
+            if (process.env['AIFA_DEBUG_STREAMING'] === 'true') {
+              console.debug('[OpenAI-Compatible Provider] Received [DONE] signal, ending stream');
+            }
+            return;
+          }
 
           try {
             const chunk: ChatCompletionChunk = safeParseJson(data);
+            if (process.env['AIFA_DEBUG_STREAMING'] === 'true') {
+              console.debug('[OpenAI-Compatible Provider] Processing chunk:', {
+                hasChoice: !!chunk.choices?.[0],
+                finishReason: chunk.choices?.[0]?.finish_reason,
+                hasContent: !!chunk.choices?.[0]?.delta?.content,
+                hasToolCalls: !!chunk.choices?.[0]?.delta?.tool_calls,
+              });
+            }
             yield chunk;
           } catch (error) {
-            console.warn('Failed to parse SSE chunk after repair attempts:', {
-              data,
-              error: error instanceof Error ? error.message : 'Unknown error'
-            });
+            if (process.env['AIFA_DEBUG_STREAMING'] === 'true') {
+              console.debug('[OpenAI-Compatible Provider] Failed to parse SSE chunk:', {
+                data,
+                error: error instanceof Error ? error.message : 'Unknown error'
+              });
+            } else {
+              console.warn('Failed to parse SSE chunk after repair attempts:', {
+                data,
+                error: error instanceof Error ? error.message : 'Unknown error'
+              });
+            }
+          }
+        }
+      }
+      // Process any remaining data in buffer
+      if (buffer.trim()) {
+        const remainingLines = buffer.trim().split('\n');
+        for (const line of remainingLines) {
+          if (line.trim() === '' || !line.startsWith('data: ')) continue;
+          
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') {
+            if (process.env['AIFA_DEBUG_STREAMING'] === 'true') {
+              console.debug('[OpenAI-Compatible Provider] Received [DONE] signal in final buffer, ending stream');
+            }
+            return;
+          }
+
+          try {
+            const chunk: ChatCompletionChunk = safeParseJson(data);
+            if (process.env['AIFA_DEBUG_STREAMING'] === 'true') {
+              console.debug('[OpenAI-Compatible Provider] Processing final chunk:', {
+                hasChoice: !!chunk.choices?.[0],
+                finishReason: chunk.choices?.[0]?.finish_reason,
+              });
+            }
+            yield chunk;
+          } catch (error) {
+            if (process.env['AIFA_DEBUG_STREAMING'] === 'true') {
+              console.debug('[OpenAI-Compatible Provider] Failed to parse final SSE chunk:', {
+                data,
+                error: error instanceof Error ? error.message : 'Unknown error'
+              });
+            }
           }
         }
       }
@@ -516,18 +610,42 @@ export class OpenAICompatibleProvider extends LlmProvider {
       stream: request.stream,
     };
 
+    console.log('🟢 CRITICAL: Request tools check:', {
+      hasTools: !!request.tools,
+      toolsLength: request.tools?.length || 0,
+      toolsType: typeof request.tools,
+      toolsArray: Array.isArray(request.tools)
+    });
+    
     if (request.tools && request.tools.length > 0) {
-      result.tools = request.tools.map(tool => ({
-        type: 'function' as const,
-        function: {
-          name: tool.functionDeclarations?.[0]?.name || 'unknown',
-          description: tool.functionDeclarations?.[0]?.description,
-          parameters: tool.functionDeclarations?.[0]?.parameters as Record<string, unknown>,
-        },
-      }));
+      console.log('[OpenAI Debug] Processing tools:', JSON.stringify(request.tools, null, 2));
+      result.tools = request.tools.map((tool, index) => {
+        console.log(`[OpenAI Debug] Tool ${index}:`, JSON.stringify(tool, null, 2));
+        console.log(`[OpenAI Debug] functionDeclarations exists:`, !!tool.functionDeclarations);
+        console.log(`[OpenAI Debug] functionDeclarations length:`, tool.functionDeclarations?.length);
+        if (tool.functionDeclarations?.[0]) {
+          console.log(`[OpenAI Debug] First function:`, JSON.stringify(tool.functionDeclarations[0], null, 2));
+        }
+        
+        const functionName = tool.functionDeclarations?.[0]?.name || 'unknown';
+        console.log(`[OpenAI Debug] Final function name:`, functionName);
+        
+        return {
+          type: 'function' as const,
+          function: {
+            name: functionName,
+            description: tool.functionDeclarations?.[0]?.description,
+            parameters: tool.functionDeclarations?.[0]?.parameters as Record<string, unknown>,
+          },
+        };
+      });
       result.tool_choice = 'auto';
+      console.log('🔧 SENDING TOOLS TO LM STUDIO:', result.tools?.length || 0);
+    } else {
+      console.log('❌ NO TOOLS IN REQUEST - LM Studio will receive no functions');
     }
 
+    console.log('📤 Final request to LM Studio has tools:', !!result.tools);
     return result;
   }
 
@@ -545,11 +663,16 @@ export class OpenAICompatibleProvider extends LlmProvider {
       }
 
       if (message.tool_calls) {
-        result.toolCalls = message.tool_calls.map(call => ({
-          id: call.id,
-          name: call.function.name,
-          arguments: safeParseJson(call.function.arguments || '{}'),
-        }));
+        console.log('[OpenAI Debug] Raw tool_calls from LM Studio:', JSON.stringify(message.tool_calls, null, 2));
+        result.toolCalls = message.tool_calls.map(call => {
+          console.log('[OpenAI Debug] Processing tool call:', JSON.stringify(call, null, 2));
+          return {
+            id: call.id,
+            name: call.function.name,
+            arguments: safeParseJson(call.function.arguments || '{}'),
+          };
+        });
+        console.log('[OpenAI Debug] Final converted tool calls:', JSON.stringify(result.toolCalls, null, 2));
       }
     }
 

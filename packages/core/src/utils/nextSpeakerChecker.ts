@@ -9,6 +9,7 @@ import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { GeminiClient } from '../core/client.js';
 import { GeminiChat } from '../core/geminiChat.js';
 import { isFunctionResponse } from './messageInspectors.js';
+import { AuthType } from '../core/contentGenerator.js';
 
 const CHECK_PROMPT = `Analyze *only* the content and structure of your immediately preceding response (your last turn in the conversation history). Based *strictly* on that response, determine who should logically speak next: the 'user' or the 'model' (you).
 **Decision Rules (apply in order):**
@@ -44,6 +45,18 @@ export async function checkNextSpeaker(
   geminiClient: GeminiClient,
   abortSignal: AbortSignal,
 ): Promise<NextSpeakerResponse | null> {
+  // For OpenAI-compatible providers, skip the complex next-speaker logic
+  // as it relies on Gemini-specific generateJson functionality
+  const authType = geminiClient.getConfig().getContentGeneratorConfig()?.authType;
+  if (authType === AuthType.USE_OPENAI_COMPATIBLE) {
+    // For LM Studio and other OpenAI-compatible providers, 
+    // assume the user should speak next after a model response
+    // This provides a simpler, more predictable flow
+    return {
+      reasoning: 'Using simplified flow for OpenAI-compatible provider - user speaks after model response',
+      next_speaker: 'user'
+    };
+  }
   // We need to capture the curated history because there are many moments when the model will return invalid turns
   // that when passed back up to the endpoint will break subsequent calls. An example of this is when the model decides
   // to respond with an empty part collection if you were to send that message back to the server it will respond with

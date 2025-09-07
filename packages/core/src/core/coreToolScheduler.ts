@@ -552,6 +552,8 @@ export class CoreToolScheduler {
 
       const newToolCalls: ToolCall[] = requestsToProcess.map(
         (reqInfo): ToolCall => {
+          console.log(`[Tool Debug] Looking for tool: "${reqInfo.name}"`);
+          console.log(`[Tool Debug] Available tools:`, this.toolRegistry.getAllTools().map(t => t.name));
           const toolInstance = this.toolRegistry.getTool(reqInfo.name);
           if (!toolInstance) {
             return {

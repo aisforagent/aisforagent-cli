@@ -8,7 +8,22 @@
       "Bash(npm run build:*)",
       "Bash(OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234 node test-aifa.js)",
       "Bash(OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234 node test-multimodal.js)",
-      "Bash(OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234 npm test -- e2e.test.ts --reporter=verbose)"
+      "Bash(OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234 npm test -- e2e.test.ts --reporter=verbose)",
+      "Bash(grep:*)",
+      "Bash(node:*)",
+      "Bash(AIFA_DEFAULT_API=openai-compatible node -e \"console.log(''AIFA_DEFAULT_API is set to:'', process.env.AIFA_DEFAULT_API)\")",
+      "Bash(echo:*)",
+      "Bash(find:*)",
+      "Bash(AIFA_DEFAULT_API=openai-compatible OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1 ./bundle/aifa.js -p \"Say hello from LM Studio!\")",
+      "Bash(AIFA_DEFAULT_API=openai-compatible OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1 ./bundle/aifa.js -p \"What model are you using?\")",
+      "Bash(AIFA_DEFAULT_API=openai-compatible OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1 AIFA_SKIP_AUTH=true ./bundle/aifa.js -p \"What model are you using?\")",
+      "Bash(npm run bundle:*)",
+      "Read(//private/var/folders/6q/j0xlnfs542l1nv4kjzv2js600000gn/T/**)",
+      "Read(//private/var/folders/6q/j0xlnfs542l1nv4kjzv2js600000gn/T/**)",
+      "Read(//var/folders/6q/j0xlnfs542l1nv4kjzv2js600000gn/T/**)",
+      "Bash(timeout:*)",
+      "Bash(AIFA_DEFAULT_API=openai-compatible OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1 env)",
+      "Bash(AIFA_DEFAULT_API=openai-compatible OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1 node -e \"console.log(''AIFA_DEFAULT_API:'', process.env.AIFA_DEFAULT_API); console.log(''OPENAI_COMPATIBLE_BASE_URL:'', process.env.OPENAI_COMPATIBLE_BASE_URL);\")"
     ],
     "deny": [],
     "ask": []

@@ -329,7 +329,7 @@ describe('loadServerHierarchicalMemory', () => {
 
   it('should load extension context file paths', async () => {
     const extensionFilePath = await createTestFile(
-      path.join(testRootDir, 'extensions/ext1/GEMINI.md'),
+      path.join(testRootDir, 'extensions/ext1/AIFA.md'),
       'Extension memory content',
     );
 
@@ -370,7 +370,7 @@ describe('loadServerHierarchicalMemory', () => {
   });
 
   it('should handle multiple directories and files in parallel correctly', async () => {
-    // Create multiple test directories with GEMINI.md files
+    // Create multiple test directories with AIFA.md files
     const numDirs = 5;
     const createdFiles: string[] = [];
 

@@ -182,6 +182,10 @@ export class Turn {
     signal: AbortSignal,
   ): AsyncGenerator<ServerGeminiStreamEvent> {
     try {
+      console.log('🎬🎬🎬 Turn.run called! 🎬🎬🎬');
+      console.log('[Turn] About to call chat.sendMessageStream');
+      console.log('[Turn] Chat type:', this.chat.constructor.name);
+      
       const responseStream = await this.chat.sendMessageStream(
         {
           message: req,

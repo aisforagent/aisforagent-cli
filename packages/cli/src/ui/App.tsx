@@ -188,6 +188,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     config.isTrustedFolder(),
   );
   const [currentModel, setCurrentModel] = useState(config.getModel());
+  const [displayModelName, setDisplayModelName] = useState(config.getModel());
   const [shellModeActive, setShellModeActive] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState<boolean>(false);
   const [showToolDescriptions, setShowToolDescriptions] =
@@ -379,6 +380,34 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
 
     return () => clearInterval(interval);
   }, [config, currentModel]);
+
+  // Force immediate model sync on mount
+  useEffect(() => {
+    const syncModel = async () => {
+      const configModel = config.getModel();
+      if (configModel !== currentModel) {
+        setCurrentModel(configModel);
+      }
+    };
+    
+    syncModel();
+  }, []); // Empty dependency array - run once on mount
+
+  // Fetch dynamic model display name for OpenAI-compatible providers
+  useEffect(() => {
+    const fetchDisplayName = async () => {
+      try {
+        const displayName = await config.getDisplayModelName();
+        if (displayName !== displayModelName) {
+          setDisplayModelName(displayName);
+        }
+      } catch (error) {
+        console.debug('Failed to fetch display model name:', error);
+      }
+    };
+    
+    fetchDisplayName();
+  }, [config, currentModel, displayModelName]);
 
   // Set up Flash fallback handler
   useEffect(() => {
@@ -1263,7 +1292,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
           )}
           {!settings.merged.hideFooter && (
             <Footer
-              model={currentModel}
+              model={displayModelName}
               targetDir={config.getTargetDir()}
               debugMode={config.getDebugMode()}
               branchName={branchName}
@@ -1280,6 +1309,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
               nightly={nightly}
               vimMode={vimModeEnabled ? vimMode : undefined}
               isTrustedFolder={isTrustedFolderState}
+              config={config}
             />
           )}
         </Box>

@@ -59,11 +59,23 @@ export async function getEnvironmentContext(config: Config): Promise<Part[]> {
   });
   const platform = process.platform;
   const directoryContext = await getDirectoryContextString(config);
+  
+  // Get the display model name (which shows the actual provider model for OpenAI-compatible providers)
+  let modelInfo: string;
+  try {
+    const displayModelName = await config.getDisplayModelName();
+    modelInfo = `You are running on model: ${displayModelName}`;
+  } catch (error) {
+    // Fallback to basic model if display name fails
+    const basicModel = config.getModel();
+    modelInfo = `You are running on model: ${basicModel}`;
+  }
 
   const context = `
-This is the Gemini CLI. We are setting up the context for our chat.
+Your name is Aifa. We are setting up the context for our chat.
 Today's date is ${today} (formatted according to the user's locale).
 My operating system is: ${platform}
+${modelInfo}
 ${directoryContext}
         `.trim();
 

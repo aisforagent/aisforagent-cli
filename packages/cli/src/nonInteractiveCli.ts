@@ -23,6 +23,8 @@ export async function runNonInteractive(
   input: string,
   prompt_id: string,
 ): Promise<void> {
+  console.log('📞📞📞 runNonInteractive called! 📞📞📞');
+  console.debug('[Debug] runNonInteractive called with input:', input?.substring(0, 50));
   const consolePatcher = new ConsolePatcher({
     stderr: true,
     debugMode: config.getDebugMode(),
@@ -38,7 +40,21 @@ export async function runNonInteractive(
       }
     });
 
+    // Initialize the config to create the GeminiClient
+    console.debug('[Debug] Initializing config...');
+    try {
+      await config.initialize();
+      console.debug('[Debug] Config initialized, getting GeminiClient...');
+    } catch (error) {
+      if ((error as Error).message === 'Config was already initialized') {
+        console.debug('[Debug] Config was already initialized, continuing...');
+      } else {
+        throw error; // Re-throw unexpected errors
+      }
+    }
     const geminiClient = config.getGeminiClient();
+    console.debug('[Debug] GeminiClient obtained:', !!geminiClient);
+    console.debug('[Debug] About to call handleAtCommand...');
 
     const abortController = new AbortController();
 
@@ -51,6 +67,8 @@ export async function runNonInteractive(
       signal: abortController.signal,
     });
 
+    console.debug('[Debug] handleAtCommand completed. shouldProceed:', shouldProceed, 'processedQuery length:', Array.isArray(processedQuery) ? processedQuery.length : (processedQuery ? 1 : 0));
+    
     if (!shouldProceed || !processedQuery) {
       // An error occurred during @include processing (e.g., file not found).
       // The error message is already logged by handleAtCommand.
@@ -76,11 +94,17 @@ export async function runNonInteractive(
       }
       const toolCallRequests: ToolCallRequestInfo[] = [];
 
+      console.debug('[Debug] About to call geminiClient.sendMessageStream...');
+      console.debug('[Debug] Current messages:', currentMessages.length);
+      console.debug('[Debug] Parts count:', currentMessages[0]?.parts?.length || 0);
+      
       const responseStream = geminiClient.sendMessageStream(
         currentMessages[0]?.parts || [],
         abortController.signal,
         prompt_id,
       );
+      
+      console.debug('[Debug] geminiClient.sendMessageStream completed, processing stream...');
 
       for await (const event of responseStream) {
         if (abortController.signal.aborted) {

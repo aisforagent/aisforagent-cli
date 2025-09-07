@@ -229,6 +229,8 @@ export class GeminiChat {
     params: SendMessageParameters,
     prompt_id: string,
   ): Promise<GenerateContentResponse> {
+    console.log('💬💬💬 GeminiChat.sendMessage called! 💬💬💬');
+    console.log('Content generator type:', this.contentGenerator.constructor.name);
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
@@ -249,6 +251,8 @@ export class GeminiChat {
           );
         }
 
+        console.log('🔄 About to call contentGenerator.generateContent');
+        console.log('Config tools count:', this.generationConfig.tools?.length || 0);
         return this.contentGenerator.generateContent(
           {
             model: modelToUse,
@@ -331,6 +335,8 @@ export class GeminiChat {
     params: SendMessageParameters,
     prompt_id: string,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
+    console.log('🌊💬💬 GeminiChat.sendMessageStream called! 💬💬🌊');
+    console.log('Content generator type:', this.contentGenerator.constructor.name);
     await this.sendPromise;
 
     let streamDoneResolver: () => void;

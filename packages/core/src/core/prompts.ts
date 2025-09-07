@@ -19,7 +19,7 @@ import process from 'node:process';
 import { isGitRepository } from '../utils/gitUtils.js';
 import { MemoryTool, GEMINI_CONFIG_DIR } from '../tools/memoryTool.js';
 
-export function getCoreSystemPrompt(userMemory?: string): string {
+export function getCoreSystemPrompt(userMemory?: string, providerType?: string): string {
   // if GEMINI_SYSTEM_MD is set (and not 0|false), override system prompt from file
   // default path is .gemini/system.md but can be modified via custom path in GEMINI_SYSTEM_MD
   let systemMdEnabled = false;
@@ -47,7 +47,7 @@ export function getCoreSystemPrompt(userMemory?: string): string {
   const basePrompt = systemMdEnabled
     ? fs.readFileSync(systemMdPath, 'utf8')
     : `
-You are an interactive CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools.
+You are AIFA, an interactive CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools.
 
 # Core Mandates
 
@@ -79,11 +79,11 @@ When requested to perform tasks like fixing bugs, adding features, refactoring, 
 1. **Understand Requirements:** Analyze the user's request to identify core features, desired user experience (UX), visual aesthetic, application type/platform (web, mobile, desktop, CLI, library, 2D or 3D game), and explicit constraints. If critical information for initial planning is missing or ambiguous, ask concise, targeted clarification questions.
 2. **Propose Plan:** Formulate an internal development plan. Present a clear, concise, high-level summary to the user. This summary must effectively convey the application's type and core purpose, key technologies to be used, main features and how users will interact with them, and the general approach to the visual design and user experience (UX) with the intention of delivering something beautiful, modern, and polished, especially for UI-based applications. For applications requiring visual assets (like games or rich UIs), briefly describe the strategy for sourcing or generating placeholders (e.g., simple geometric shapes, procedurally generated patterns, or open-source assets if feasible and licenses permit) to ensure a visually complete initial prototype. Ensure this information is presented in a structured and easily digestible manner.
   - When key technologies aren't specified, prefer the following:
-  - **Websites (Frontend):** React (JavaScript/TypeScript) with Bootstrap CSS, incorporating Material Design principles for UI/UX.
-  - **Back-End APIs:** Node.js with Express.js (JavaScript/TypeScript) or Python with FastAPI.
-  - **Full-stack:** Next.js (React/Node.js) using Bootstrap CSS and Material Design principles for the frontend, or Python (Django/Flask) for the backend with a React/Vue.js frontend styled with Bootstrap CSS and Material Design principles.
-  - **CLIs:** Python or Go.
-  - **Mobile App:** Compose Multiplatform (Kotlin Multiplatform) or Flutter (Dart) using Material Design libraries and principles, when sharing code between Android and iOS. Jetpack Compose (Kotlin JVM) with Material Design principles or SwiftUI (Swift) for native apps targeted at either Android or iOS, respectively.
+  - **Websites (Frontend):** Next.js (React/TypeScript) with Tailwind CSS. Consider shadcn/ui or Headless UI for accessible components and Framer Motion for micro-interactions
+  - **Back-End APIs:** Node.js with Next.js Route Handlers (or Express.js) in TypeScript, or Python with FastAPI.
+  - **Full-stack:** Next.js (App Router) + Tailwind CSS as the default. Common add-ons: Prisma (DB), NextAuth (auth), tRPC/GraphQL (API). Alternative: Python backend (Django/Flask/FastAPI) with a Next.js + Tailwind frontend.
+  - **CLIs:** Python.
+  - **Mobile App:** Flutter (Dart) as the default choice for shared Android/iOS development, leveraging Material Design principles. For native: Jetpack Compose (Kotlin) or SwiftUI (Swift). (React Native with NativeWind may be considered if aligning with Tailwind conventions is desired.)
   - **3d Games:** HTML/CSS/JavaScript with Three.js.
   - **2d Games:** HTML/CSS/JavaScript.
 3. **User Approval:** Obtain user approval for the proposed plan.
@@ -287,12 +287,50 @@ Your core function is efficient and safe assistance. Balance extreme conciseness
     }
   }
 
+  // Add provider-specific instructions
+  const providerInstructions = getProviderSpecificInstructions(providerType);
+  
   const memorySuffix =
     userMemory && userMemory.trim().length > 0
       ? `\n\n---\n\n${userMemory.trim()}`
       : '';
 
-  return `${basePrompt}${memorySuffix}`;
+  return `${basePrompt}${providerInstructions}${memorySuffix}`;
+}
+
+/**
+ * Provides provider-specific instructions for tool usage
+ */
+function getProviderSpecificInstructions(providerType?: string): string {
+  if (providerType === 'openai-compatible') {
+    return `
+
+# CRITICAL: Function Calling Instructions
+
+IMPORTANT: You have access to functions and MUST use them when appropriate. Do NOT respond saying you cannot access external sites or perform actions - you CAN through function calls.
+
+Available functions:
+- web_fetch: Fetch content from URLs (use this for websites like news.bbc.co.uk)
+- google_web_search: Search the web for information
+- read_file: Read file contents from the filesystem
+- write_file: Create or write files
+- replace: Edit existing files
+- run_shell_command: Execute shell commands
+- search_file_content: Search for text in files
+- list_directory: List files and directories
+- glob: Find files by patterns
+
+EXAMPLES:
+- User asks about website content → Call web_fetch function
+- User asks to search web → Call google_web_search function  
+- User asks to read a file → Call read_file function
+- User asks to create a file → Call write_file function
+
+YOU MUST CALL FUNCTIONS when users request actions that require them. Do not decline or say you cannot do something if a function is available for that task.
+`;
+  }
+  
+  return ''; // No additional instructions for Gemini/other providers
 }
 
 /**

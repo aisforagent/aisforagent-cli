@@ -40,6 +40,165 @@ OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234 node test-aifa.js
 OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234 node test-multimodal.js
 ```
 
+## 🎛️ Default API & Model Configuration
+
+AIFA supports multiple LLM providers with intelligent auto-detection and fallback. Use the `AIFA_DEFAULT_API` environment variable to set your preferred provider.
+
+### 🔧 Setting Your Default API Provider
+
+```bash
+export AIFA_DEFAULT_API=openai-compatible  # for local providers
+export AIFA_DEFAULT_API=google-gemini      # for Google Gemini
+export AIFA_DEFAULT_API=openai             # for OpenAI
+export AIFA_DEFAULT_API=claude             # for Claude (future)
+```
+
+### 📋 Complete Setup Guide
+
+#### 🏠 LM Studio (Recommended for Local Development)
+```bash
+# 1. Set default API
+export AIFA_DEFAULT_API=openai-compatible
+
+# 2. Configure LM Studio connection  
+export OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1
+export OPENAI_COMPATIBLE_API_KEY=lm-studio  # any string works
+
+# 3. Set your preferred model (optional - will use loaded model)
+export OPENAI_MODEL=qwen2.5-coder  # or whatever model you've loaded
+
+# 4. Test the connection
+node test-aifa.js
+```
+
+**LM Studio Setup:**
+1. Download [LM Studio](https://lmstudio.ai/)
+2. Go to "Discover" and download a model (e.g., Qwen2.5-Coder, Llama 3.3)
+3. Go to "Developer" → "Start Server"
+4. Verify server is running at `http://localhost:1234`
+
+#### 🦙 Ollama (Alternative Local Option)
+```bash
+# 1. Set default API
+export AIFA_DEFAULT_API=openai-compatible
+
+# 2. Configure Ollama connection
+export OPENAI_COMPATIBLE_BASE_URL=http://localhost:11434/v1
+export OPENAI_COMPATIBLE_API_KEY=ollama
+
+# 3. Set your preferred model
+export OPENAI_MODEL=llama3.2  # or your installed model
+
+# 4. Test the connection
+node test-aifa.js
+```
+
+**Ollama Setup:**
+1. Install [Ollama](https://ollama.ai/)
+2. Pull a model: `ollama pull llama3.2`
+3. Start Ollama server: `ollama serve`
+4. Verify at `http://localhost:11434`
+
+#### 🤖 Google Gemini (Cloud Service)
+```bash
+# 1. Set default API
+export AIFA_DEFAULT_API=google-gemini
+
+# 2. Configure API key (required)
+export GEMINI_API_KEY=your-gemini-api-key
+
+# 3. Set model (optional - defaults to gemini-2.0-flash)
+export GEMINI_MODEL=gemini-2.0-flash  # or gemini-1.5-pro
+
+# 4. Skip auth for testing (optional)
+export AIFA_SKIP_AUTH=true
+```
+
+**Gemini Setup:**
+1. Get API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Use existing Gemini CLI authentication if needed
+
+#### 🧠 OpenAI (Cloud Service)
+```bash
+# 1. Set default API  
+export AIFA_DEFAULT_API=openai-compatible
+
+# 2. Configure OpenAI connection
+export OPENAI_API_BASE=https://api.openai.com/v1
+export OPENAI_API_KEY=your-openai-api-key
+
+# 3. Set your preferred model
+export OPENAI_MODEL=gpt-4o  # or gpt-3.5-turbo, gpt-4-turbo
+
+# 4. Test the connection
+node test-aifa.js
+```
+
+**OpenAI Setup:**
+1. Get API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Verify billing is configured
+
+#### 🧠 Claude (Future Support)
+```bash
+# 1. Set default API (when available)
+export AIFA_DEFAULT_API=claude
+
+# 2. Configure Claude connection (planned)
+export CLAUDE_API_KEY=your-claude-api-key
+export CLAUDE_MODEL=claude-3-opus  # or claude-3-sonnet
+
+# Note: Claude support is planned for future releases
+```
+
+### 🔄 Auto-Detection & Fallback Behavior
+
+If no `AIFA_DEFAULT_API` is set, AIFA uses intelligent detection:
+
+1. **🔍 Auto-detect local providers:**
+   - Checks LM Studio (`http://localhost:1234`)  
+   - Checks Ollama (`http://localhost:11434`)
+   - Uses first available with console notification
+
+2. **📋 Check environment configuration:**
+   - `OPENAI_COMPATIBLE_BASE_URL` → OpenAI-compatible
+   - `GEMINI_API_KEY` → Google Gemini
+
+3. **⚠️ Final fallback to Gemini:**
+   - Shows warning if no local providers found
+   - Provides setup instructions
+
+### 🎯 Model Selection Per Provider
+
+| Provider | Model Environment Variable | Common Models |
+|----------|----------------------------|---------------|
+| **LM Studio** | `OPENAI_MODEL` | `qwen2.5-coder`, `llama-3.3-70b`, `deepseek-coder` |
+| **Ollama** | `OPENAI_MODEL` | `llama3.2`, `qwen2.5`, `codellama` |
+| **Google Gemini** | `GEMINI_MODEL` | `gemini-2.0-flash`, `gemini-1.5-pro` |
+| **OpenAI** | `OPENAI_MODEL` | `gpt-4o`, `gpt-4-turbo`, `gpt-3.5-turbo` |
+
+### 💡 Pro Tips
+
+**Zero-Config Setup:**
+```bash
+# Just start LM Studio or Ollama - AIFA will find it automatically!
+# No environment variables needed for basic usage
+```
+
+**Multiple Provider Setup:**
+```bash
+# Create different shell profiles
+alias aifa-local="AIFA_DEFAULT_API=openai-compatible OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1"
+alias aifa-gemini="AIFA_DEFAULT_API=google-gemini"
+alias aifa-openai="AIFA_DEFAULT_API=openai-compatible OPENAI_API_BASE=https://api.openai.com/v1"
+```
+
+**Debug Provider Selection:**
+```bash
+# See which provider AIFA would choose
+export AIFA_DEBUG_PROVIDER=true
+node test-aifa.js
+```
+
 ## 🏗️ Architecture
 
 AIFA implements a **provider abstraction pattern** that allows seamless switching between different LLM services:
@@ -100,24 +259,72 @@ AIFA implements a **provider abstraction pattern** that allows seamless switchin
 - **Auto-detection** of available providers
 - **Validation** with helpful error messages
 
-## 🔧 Configuration
+## 🔧 Configuration Reference
 
-### Environment Variables
+### Primary Environment Variables
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `OPENAI_COMPATIBLE_BASE_URL` | LM Studio server URL | `http://127.0.0.1:1234` |
-| `OPENAI_COMPATIBLE_API_KEY` | API key (optional) | `lm-studio` |
-| `GEMINI_API_KEY` | Google Gemini API key | `your-gemini-key` |
-| `LLM_PROVIDER` | Force specific provider | `openai-compatible` |
+| `AIFA_DEFAULT_API` | **Primary API provider selection** | `openai-compatible`, `google-gemini` |
+| `OPENAI_COMPATIBLE_BASE_URL` | Local/OpenAI-compatible server URL | `http://localhost:1234/v1` |
+| `OPENAI_COMPATIBLE_API_KEY` | API key for compatible servers | `lm-studio`, `your-api-key` |
+| `OPENAI_MODEL` | Default model for OpenAI-compatible | `qwen2.5-coder`, `gpt-4o` |
+| `GEMINI_API_KEY` | Google Gemini API key | `your-gemini-api-key` |
+| `GEMINI_MODEL` | Default Gemini model | `gemini-2.0-flash` |
 
-### Provider Auto-Detection
+### Legacy/Alternative Variables
 
-AIFA automatically selects the appropriate provider:
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `LLM_PROVIDER` | Legacy provider selection | `openai-compatible` |
+| `OPENAI_API_BASE` | OpenAI API base URL | `https://api.openai.com/v1` |
+| `OPENAI_API_KEY` | OpenAI API key | `your-openai-key` |
+| `AIFA_SKIP_AUTH` | Skip Google authentication | `true` |
 
-1. If `GEMINI_API_KEY` is set → **GoogleGeminiProvider**
-2. If `OPENAI_COMPATIBLE_BASE_URL` is set → **OpenAICompatibleProvider**  
-3. Otherwise → **OpenAICompatibleProvider** (with default localhost)
+### 🧠 Intelligent Provider Selection
+
+AIFA uses a **smart hierarchy** to choose your LLM provider:
+
+1. **🎯 Explicit Configuration:**
+   - `AIFA_DEFAULT_API` environment variable (highest priority)
+   - `LLM_PROVIDER` environment variable (legacy support)
+
+2. **🔍 Auto-Detection:**
+   - **LM Studio** at `http://localhost:1234/v1`
+   - **Ollama** at `http://localhost:11434/v1`
+   - Console notification when detected
+
+3. **📋 Environment Fallback:**
+   - `OPENAI_COMPATIBLE_BASE_URL` → OpenAI-compatible provider
+   - `GEMINI_API_KEY` → Google Gemini provider
+
+4. **⚠️ Final Fallback:**
+   - Google Gemini with user warning and setup instructions
+
+### 🎛️ Advanced Configuration
+
+**Custom Provider Endpoints:**
+```bash
+# Custom local LLM server
+export AIFA_DEFAULT_API=openai-compatible
+export OPENAI_COMPATIBLE_BASE_URL=http://my-server:8080/v1
+
+# Multiple local servers (use aliases)
+alias aifa-local1="OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1"
+alias aifa-local2="OPENAI_COMPATIBLE_BASE_URL=http://localhost:5678/v1"
+```
+
+**Debug and Logging:**
+```bash
+# Enable detailed provider selection logging
+export AIFA_DEBUG_PROVIDER=true
+
+# Enable streaming debug logs  
+export AIFA_DEBUG_STREAMING=true
+
+# General debug mode
+export DEBUG=aifa:*
+```
 
 ## 🧪 Testing
 
@@ -241,29 +448,109 @@ gemini /models help
 
 ### Common Issues
 
-1. **"OPENAI_COMPATIBLE_BASE_URL environment variable not found"**
-   - Set the environment variable: `export OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234`
-   - Ensure LM Studio is running on that port
+#### 🔧 Provider Selection Issues
 
-2. **"Failed to list models: Cannot read properties of undefined"**
-   - Check that LM Studio server is running
-   - Verify the base URL is correct (should auto-add `/v1` if missing)
-   - Try accessing `http://127.0.0.1:1234/v1/models` in your browser
+1. **"No provider configured" or unexpected provider selection**
+   ```bash
+   # Check which provider AIFA would choose
+   export AIFA_DEBUG_PROVIDER=true
+   node test-aifa.js
+   
+   # Set explicit provider
+   export AIFA_DEFAULT_API=openai-compatible
+   ```
 
-3. **"Bad Request" errors with images**
-   - The model may not support vision capabilities
-   - Try with a vision-capable model like Qwen2.5-VL
-   - Ensure image data is properly base64-encoded
+2. **"OPENAI_COMPATIBLE_BASE_URL environment variable not found"**
+   ```bash
+   # For LM Studio
+   export AIFA_DEFAULT_API=openai-compatible
+   export OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1
+   
+   # For Ollama
+   export OPENAI_COMPATIBLE_BASE_URL=http://localhost:11434/v1
+   ```
 
-4. **Streaming responses not working**
-   - Some local models may not support streaming
-   - Check LM Studio settings for streaming support
-   - Try with `stream: false` in the request
+3. **Auto-detection not working**
+   - Ensure LM Studio server is running: `http://localhost:1234`
+   - Ensure Ollama is running: `ollama serve`
+   - Check ports are not blocked by firewall
+   - Try explicit configuration as fallback
 
-### Debug Mode
-Enable verbose logging by setting:
+#### 🌐 Connection Issues
+
+4. **"Failed to list models: Cannot read properties of undefined"**
+   - Check server is running and accessible
+   - Verify the base URL (AIFA auto-adds `/v1` if missing)
+   - Test directly: `curl http://localhost:1234/v1/models`
+
+5. **"Connection refused" errors**
+   - Server not running or wrong port
+   - Check firewall/network restrictions
+   - Verify URL format: must include `http://` or `https://`
+
+#### 🎯 Model-Specific Issues
+
+6. **"Bad Request" errors with images**
+   - Model may not support vision (use Qwen2.5-VL, LLaVA, etc.)
+   - Ensure image is properly base64-encoded
+   - Check image size limits
+
+7. **Streaming responses cut off or not working**
+   ```bash
+   # Enable streaming debug logs
+   export AIFA_DEBUG_STREAMING=true
+   
+   # Some models don't support streaming - try without
+   # Set in your model configuration: stream: false
+   ```
+
+#### 🔑 Authentication Issues
+
+8. **Google Gemini authentication problems**
+   ```bash
+   # Skip auth for testing
+   export AIFA_SKIP_AUTH=true
+   
+   # Or use explicit API key
+   export GEMINI_API_KEY=your-api-key
+   ```
+
+### 🔍 Debug Tools
+
+**Comprehensive Debugging:**
 ```bash
+# Provider selection debug
+export AIFA_DEBUG_PROVIDER=true
+
+# Streaming debug  
+export AIFA_DEBUG_STREAMING=true
+
+# General debug mode
 export DEBUG=aifa:*
+
+# Test with verbose output
+node test-aifa.js
+```
+
+**Check Provider Status:**
+```bash
+# Test LM Studio
+curl http://localhost:1234/v1/models
+
+# Test Ollama
+curl http://localhost:11434/api/tags
+
+# Test OpenAI
+curl -H "Authorization: Bearer your-key" https://api.openai.com/v1/models
+```
+
+**Configuration Validation:**
+```bash
+# See current environment
+env | grep -E "(AIFA|OPENAI|GEMINI|LLM)"
+
+# Test provider selection
+node -e "console.log(process.env.AIFA_DEFAULT_API || 'auto-detect')"
 ```
 
 ## 🤝 Contributing
@@ -333,15 +620,29 @@ AIFA successfully transforms the Google Gemini CLI into a truly vendor-agnostic 
 ✅ **Error handling** provides helpful guidance for local server issues  
 ✅ **E2E tests** demonstrate robust functionality (10/13 passing)
 
-## 📈 Future Roadmap
+## 📈 Roadmap Status
 
-- [ ] **Ollama integration** - Direct support for Ollama servers
-- [ ] **Claude API compatibility** - Anthropic Claude integration  
-- [ ] **Streaming improvements** - Better delta callback support
-- [ ] **Configuration UI** - Web-based setup and monitoring
-- [ ] **Model management** - Download, update, and switch models
-- [ ] **Performance metrics** - Token usage, latency tracking
-- [ ] **Plugin system** - Custom tools and extensions
+### ✅ Completed
+- ✅ **Ollama integration** - Full support for Ollama servers with auto-detection
+- ✅ **AIFA_DEFAULT_API configuration** - Primary environment variable for provider selection
+- ✅ **Auto-detection system** - Intelligent fallback to local providers
+- ✅ **Streaming improvements** - Enhanced OpenAI-compatible streaming with proper termination
+- ✅ **Authentication bypass** - AIFA_SKIP_AUTH for development workflow
+- ✅ **Dynamic model display** - Live model information from provider APIs
+- ✅ **Comprehensive documentation** - Complete setup guide for all providers
+
+### 🔄 In Progress  
+- 🔄 **Claude API compatibility** - Anthropic Claude integration (framework ready)
+- 🔄 **Enhanced error handling** - More contextual provider-specific guidance
+
+### 📋 Planned
+- [ ] **Model management** - Switch models through CLI
+- [ ] **Provider management** - Switch LLM API providers through CLI
+- [ ] **Configuration UI** - Web-based setup and monitoring dashboard
+- [ ] **Performance metrics** - Token usage, latency tracking, and analytics
+- [ ] **Plugin system** - Custom tools and extensions framework
+- [ ] **Multi-provider chaining** - Route different tasks to optimal providers
+- [ ] **Context window optimization** - Smart content truncation and summarization
 
 ---
 

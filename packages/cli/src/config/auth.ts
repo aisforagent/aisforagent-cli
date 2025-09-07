@@ -10,6 +10,11 @@ import { loadEnvironment } from './settings.js';
 export const validateAuthMethod = (authMethod: string): string | null => {
   loadEnvironment();
   
+  // Skip auth validation when AIFA_SKIP_AUTH is set for local development
+  if (process.env['AIFA_SKIP_AUTH'] === 'true') {
+    return null;
+  }
+  
   // Support for AIFA local providers
   if (authMethod === AuthType.USE_OPENAI_COMPATIBLE) {
     if (!process.env['OPENAI_COMPATIBLE_BASE_URL']) {

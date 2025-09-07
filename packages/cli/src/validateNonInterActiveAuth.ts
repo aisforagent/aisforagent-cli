@@ -9,6 +9,11 @@ import { USER_SETTINGS_PATH } from './config/settings.js';
 import { validateAuthMethod } from './config/auth.js';
 
 function getAuthTypeFromEnv(): AuthType | undefined {
+  // Skip auth type detection when AIFA_SKIP_AUTH is set
+  if (process.env['AIFA_SKIP_AUTH'] === 'true') {
+    return AuthType.USE_OPENAI_COMPATIBLE; // Default to OpenAI-compatible for local LLMs
+  }
+  
   if (process.env['GOOGLE_GENAI_USE_GCA'] === 'true') {
     return AuthType.LOGIN_WITH_GOOGLE;
   }
@@ -26,6 +31,15 @@ export async function validateNonInteractiveAuth(
   useExternalAuth: boolean | undefined,
   nonInteractiveConfig: Config,
 ) {
+  console.log('🔐🔐🔐 validateNonInteractiveAuth called! 🔐🔐🔐');
+  console.log('AIFA_SKIP_AUTH:', process.env['AIFA_SKIP_AUTH']);
+  // Skip auth validation entirely when AIFA_SKIP_AUTH is set
+  if (process.env['AIFA_SKIP_AUTH'] === 'true') {
+    console.log('Skipping auth validation due to AIFA_SKIP_AUTH=true, but ensuring client is initialized');
+    await nonInteractiveConfig.refreshAuth(AuthType.USE_OPENAI_COMPATIBLE);
+    return nonInteractiveConfig;
+  }
+  
   const effectiveAuthType = configuredAuthType || getAuthTypeFromEnv();
 
   if (!effectiveAuthType) {

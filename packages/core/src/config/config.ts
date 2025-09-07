@@ -363,11 +363,12 @@ export class Config {
   }
 
   /**
-   * Must only be called once, throws if called again.
+   * Initialize the config. Safe to call multiple times.
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
-      throw Error('Config was already initialized');
+      console.debug('[Config] Already initialized, skipping');
+      return;
     }
     this.initialized = true;
     // Initialize centralized FileDiscoveryService
@@ -381,6 +382,27 @@ export class Config {
   }
 
   async refreshAuth(authMethod: AuthType) {
+    // Skip auth refresh when AIFA_SKIP_AUTH is set, but still create contentGeneratorConfig for OpenAI-compatible providers
+    if (process.env['AIFA_SKIP_AUTH'] === 'true') {
+      // For OpenAI-compatible providers, we still need to create the contentGeneratorConfig
+      if (authMethod === AuthType.USE_OPENAI_COMPATIBLE) {
+        // Check if we already have a valid GeminiClient for this auth type
+        if (this.geminiClient && this.geminiClient.isInitialized() && 
+            this.contentGeneratorConfig?.authType === authMethod) {
+          console.debug('[Config] GeminiClient already initialized for OpenAI-compatible, skipping refresh');
+          return;
+        }
+        
+        const newContentGeneratorConfig = createContentGeneratorConfig(this, authMethod);
+        const newGeminiClient = new GeminiClient(this);
+        await newGeminiClient.initialize(newContentGeneratorConfig);
+        
+        this.contentGeneratorConfig = newContentGeneratorConfig;
+        this.geminiClient = newGeminiClient;
+      }
+      return;
+    }
+    
     // Save the current conversation history before creating a new client
     let existingHistory: Content[] = [];
     if (this.geminiClient && this.geminiClient.isInitialized()) {
@@ -436,6 +458,58 @@ export class Config {
 
   getModel(): string {
     return this.contentGeneratorConfig?.model || this.model;
+  }
+
+  /**
+   * Get display-friendly model name for UI. 
+   * For OpenAI-compatible providers, this may differ from the model ID.
+   */
+  async getDisplayModelName(): Promise<string> {
+    const currentModel = this.getModel();
+    
+    // For OpenAI-compatible providers, try to get a more friendly name
+    if (this.contentGeneratorConfig?.authType === AuthType.USE_OPENAI_COMPATIBLE) {
+      try {
+        // Import dynamically to avoid circular dependencies
+        const { createLlmProvider } = await import('../llm/providerFactory.js');
+        const provider = await createLlmProvider();
+        const models = await provider.listModels();
+        const modelInfo = models.find((m: { id: string; name: string }) => m.id === currentModel);
+        return modelInfo?.name || currentModel;
+      } catch (error) {
+        // Fallback to current model if fetching fails
+        console.debug('Failed to fetch dynamic model name:', error);
+      }
+    }
+    
+    return currentModel;
+  }
+
+  /**
+   * Get dynamic model info including context length for OpenAI-compatible providers
+   */
+  async getDynamicModelInfo(): Promise<{ name: string; contextLength?: number }> {
+    const currentModel = this.getModel();
+    
+    // For OpenAI-compatible providers, try to get model info
+    if (this.contentGeneratorConfig?.authType === AuthType.USE_OPENAI_COMPATIBLE) {
+      try {
+        // Import dynamically to avoid circular dependencies
+        const { createLlmProvider } = await import('../llm/providerFactory.js');
+        const provider = await createLlmProvider();
+        const models = await provider.listModels();
+        const modelInfo = models.find((m: { id: string; name: string; contextLength?: number }) => m.id === currentModel);
+        return {
+          name: modelInfo?.name || currentModel,
+          contextLength: modelInfo?.contextLength
+        };
+      } catch (error) {
+        // Fallback if fetching fails
+        console.debug('Failed to fetch dynamic model info:', error);
+      }
+    }
+    
+    return { name: currentModel };
   }
 
   setModel(newModel: string): void {

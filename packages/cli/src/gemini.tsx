@@ -223,9 +223,32 @@ export async function main() {
     process.exit(0);
   }
 
-  // Set a default auth type if one isn't set.
-  if (!settings.merged.selectedAuthType) {
-    if (process.env['CLOUD_SHELL'] === 'true') {
+  // Set auth type based on environment variables or use cached settings
+  // Environment variables take precedence over cached settings
+  if (process.env['AIFA_DEFAULT_API'] === 'openai-compatible') {
+    settings.setValue(
+      SettingScope.User,
+      'selectedAuthType',
+      AuthType.USE_OPENAI_COMPATIBLE,
+    );
+    console.log('🔌 Using OpenAI-compatible provider from AIFA_DEFAULT_API environment variable');
+  } else if (process.env['AIFA_DEFAULT_API'] === 'google-gemini') {
+    settings.setValue(
+      SettingScope.User,
+      'selectedAuthType',
+      AuthType.USE_GEMINI,
+    );
+    console.log('🔌 Using Google Gemini provider from AIFA_DEFAULT_API environment variable');
+  } else if (!settings.merged.selectedAuthType) {
+    // Set a default auth type only if one isn't set and no env override
+    if (process.env['AIFA_SKIP_AUTH'] === 'true') {
+      // Default to OpenAI-compatible when skipping auth for local development
+      settings.setValue(
+        SettingScope.User,
+        'selectedAuthType',
+        AuthType.USE_OPENAI_COMPATIBLE,
+      );
+    } else if (process.env['CLOUD_SHELL'] === 'true') {
       settings.setValue(
         SettingScope.User,
         'selectedAuthType',
@@ -236,7 +259,32 @@ export async function main() {
 
   setMaxSizedBoxDebugging(config.getDebugMode());
 
-  await config.initialize();
+  try {
+    console.log('🚀 About to call main config.initialize()');
+    await config.initialize();
+    console.log('✅ Main config.initialize() completed successfully');
+  } catch (error) {
+    console.log('❌ Main config.initialize() failed:', error);
+    throw error;
+  }
+
+  // After config is initialized, set up the LM Studio model if using OpenAI-compatible provider
+  console.log('🔍 Checking environment: AIFA_DEFAULT_API =', process.env['AIFA_DEFAULT_API'], 'AIFA_SKIP_AUTH =', process.env['AIFA_SKIP_AUTH']);
+  if (process.env['AIFA_DEFAULT_API'] === 'openai-compatible') {
+    // Skip refreshAuth when AIFA_SKIP_AUTH=true since config is already initialized with correct auth type
+    if (process.env['AIFA_SKIP_AUTH'] !== 'true') {
+      console.log('🔄🔄🔄 About to call config.refreshAuth 🔄🔄🔄');
+      try {
+        await config.refreshAuth(AuthType.USE_OPENAI_COMPATIBLE);
+        console.log('✅ config.refreshAuth completed successfully');
+      } catch (error) {
+        console.log('❌ config.refreshAuth failed:', error);
+        throw error;
+      }
+    } else {
+      console.log('⏭️ Skipping refreshAuth since AIFA_SKIP_AUTH=true and config is already initialized');
+    }
+  }
 
   if (config.getIdeMode()) {
     await config.getIdeClient().connect();
@@ -263,7 +311,8 @@ export async function main() {
     if (sandboxConfig) {
       if (
         settings.merged.selectedAuthType &&
-        !settings.merged.useExternalAuth
+        !settings.merged.useExternalAuth &&
+        process.env['AIFA_SKIP_AUTH'] !== 'true'
       ) {
         // Validate authentication here because the sandbox will interfere with the Oauth2 web redirect.
         try {
@@ -373,6 +422,10 @@ export async function main() {
     config,
   );
 
+  console.log('🎬🎬🎬 About to call runNonInteractive! 🎬🎬🎬');
+  console.log('Input length:', input?.length || 0);
+  console.log('Prompt ID:', prompt_id);
+  
   await runNonInteractive(nonInteractiveConfig, input, prompt_id);
   process.exit(0);
 }
